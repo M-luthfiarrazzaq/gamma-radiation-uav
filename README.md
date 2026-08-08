@@ -72,11 +72,8 @@ Both boards were designed from scratch in EasyEDA, fabricated, and hand-assemble
 
 <!-- ▸ REPLACE: Gambar 4.4 (PCB layout) and Gambar 4.5 (photo, top + bottom) -->
 <p align="center">
-  <img src="docs/images/tx-layout.png" width="45%" alt="Transmitter PCB layout">
-</p>
-
-<p align="center">
-  <img src="docs/images/tx-photo.png" width="45%" alt="Assembled transmitter board">
+  <img src="docs/images/tx-layout.png" width="75%" alt="Transmitter PCB layout">
+  <img src="docs/images/tx-photo.png" width="25%" alt="Assembled transmitter board">
 </p>
 
 | Specification | Detail |
@@ -103,8 +100,8 @@ Both boards were designed from scratch in EasyEDA, fabricated, and hand-assemble
 
 <!-- ▸ REPLACE: Gambar 4.7 (layout) and Gambar 4.8 (photo) -->
 <p align="center">
-  <img src="docs/images/rx-layout.png" width="45%" alt="Receiver PCB layout">
-  <img src="docs/images/rx-photo.png" width="45%" alt="Assembled receiver dongle">
+  <img src="docs/images/rx-layout.png" width="50%" alt="Receiver PCB layout">
+  <img src="docs/images/rx-photo.png" width="40%" alt="Assembled receiver dongle">
 </p>
 
 | Specification | Detail |
