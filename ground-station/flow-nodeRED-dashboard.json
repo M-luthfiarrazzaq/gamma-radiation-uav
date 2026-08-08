@@ -1,0 +1,1039 @@
+[
+    {
+        "id": "1b565e645a805405",
+        "type": "tab",
+        "label": "Deteksi Radiasi Gamma",
+        "disabled": false,
+        "info": "Dashboard sistem deteksi radiasi gamma berbasis hexacopter\nMuhammad Luthfi Ar-Razzaq - 022200025 - Poltek Nuklir BRIN"
+    },
+    {
+        "id": "a451ec5e8453cd3a",
+        "type": "inject",
+        "z": "1b565e645a805405",
+        "name": "Inisialisasi DB",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "1",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 140,
+        "y": 60,
+        "wires": [
+            [
+                "7131a60f4f391287"
+            ]
+        ]
+    },
+    {
+        "id": "7131a60f4f391287",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Buat Tabel timed_count",
+        "func": "msg.topic = `\nCREATE TABLE IF NOT EXISTS timed_count (\n    id         INTEGER PRIMARY KEY AUTOINCREMENT,\n    session_id INTEGER NOT NULL DEFAULT 1,\n    timestamp  TEXT NOT NULL,\n    duration_s REAL NOT NULL,\n    pulses     INTEGER NOT NULL,\n    cpm        REAL NOT NULL,\n    usv_h      REAL NOT NULL,\n    usv_total  REAL NOT NULL,\n    lat        REAL DEFAULT 0,\n    lon        REAL DEFAULT 0,\n    alt_m      REAL DEFAULT 0,\n    rssi       INTEGER DEFAULT 0,\n    snr        REAL DEFAULT 0\n);\n`;\nreturn msg;",
+        "outputs": 1,
+        "x": 390,
+        "y": 60,
+        "wires": [
+            [
+                "fcd5e9b2486ed67c"
+            ]
+        ]
+    },
+    {
+        "id": "fcd5e9b2486ed67c",
+        "type": "sqlite",
+        "z": "1b565e645a805405",
+        "mydb": "0168cd33b9d4013a",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "Buat Tabel",
+        "x": 630,
+        "y": 60,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "edb810eccf919f5f",
+        "type": "serial in",
+        "z": "1b565e645a805405",
+        "name": "USB Receiver",
+        "serial": "be653c81289951d4",
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "0376fcea23e615ae"
+            ]
+        ]
+    },
+    {
+        "id": "0376fcea23e615ae",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Filter JSON only",
+        "func": "var s = (msg.payload || '').toString().trim();\nif (s.charAt(0) !== '{') return null;\nmsg.payload = s;\nreturn msg;",
+        "outputs": 1,
+        "x": 360,
+        "y": 120,
+        "wires": [
+            [
+                "99e536498bec6705"
+            ]
+        ]
+    },
+    {
+        "id": "99e536498bec6705",
+        "type": "json",
+        "z": "1b565e645a805405",
+        "name": "Parse JSON",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 630,
+        "y": 120,
+        "wires": [
+            [
+                "e2f6d0a68c5e912e"
+            ]
+        ]
+    },
+    {
+        "id": "e2f6d0a68c5e912e",
+        "type": "switch",
+        "z": "1b565e645a805405",
+        "name": "Route by type",
+        "property": "payload.type",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "cont",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "timed",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "false",
+        "repair": false,
+        "outputs": 3,
+        "x": 840,
+        "y": 120,
+        "wires": [
+            [
+                "61e70f2cfda43616"
+            ],
+            [
+                "967627028cb49b88"
+            ],
+            [
+                "c332b50cd0d622eb",
+                "8a3960c10dd69a61"
+            ]
+        ]
+    },
+    {
+        "id": "61e70f2cfda43616",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Handle Continuous",
+        "func": "var d   = msg.payload;\nvar usv = parseFloat(d.usv);\nvar color = usv > 2.0 ? 'red' : usv > 1.0 ? 'orange' : usv > 0.5 ? 'yellow' : 'green';\nvar icon  = usv > 2.0 ? 'fa-exclamation-triangle' : 'fa-plane';\nvar lat   = parseFloat(d.lat);\nvar lon   = parseFloat(d.lon);\n\nvar mapMsg = null;\nif (lat !== 0 && lon !== 0) {\n    mapMsg = {\n        payload: {\n            name      : 'drone_live',\n            lat       : lat,\n            lon       : lon,\n            alt       : parseFloat(d.alt),\n            icon      : icon,\n            iconColor : color,\n            layer     : 'Drone Live',\n            popup     : '<b>' + usv.toFixed(4) + ' µSv/h</b><br>'\n                      + d.cpm + ' CPM<br>'\n                      + 'Alt: ' + parseFloat(d.alt).toFixed(1) + ' m<br>'\n                      + 'RSSI: ' + d.rssi + ' dBm'\n        }\n    };\n}\n\nreturn [\n    mapMsg,\n    { payload: parseInt(d.cpm) },\n    { payload: parseFloat(d.usv) },\n    { payload: parseFloat(d.alt) },\n    { payload: parseInt(d.rssi) }\n];",
+        "outputs": 5,
+        "x": 1070,
+        "y": 80,
+        "wires": [
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "3a382435fff19761"
+            ],
+            [
+                "6e680ac6e771cdfb"
+            ],
+            [
+                "ad29d2995b07fef3"
+            ],
+            [
+                "7a0d290ae8641c04"
+            ]
+        ]
+    },
+    {
+        "id": "967627028cb49b88",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Handle Timed + SQLite + Marker + Heatmap",
+        "func": "var d         = msg.payload;\nvar sessionId = flow.get('currentSessionId') || 1;\nvar now       = new Date().toLocaleString('sv-SE', {\n    timeZone: 'Asia/Jakarta'\n}).replace(' ', 'T');\nvar lat  = parseFloat(d.lat);\nvar lon  = parseFloat(d.lon);\nvar cpm  = parseFloat(d.cpm);\nvar usvH = parseFloat(d.usv_h);\n\nvar sqlMsg = {\n    topic: 'INSERT INTO timed_count (session_id, timestamp, duration_s, pulses, cpm, usv_h, usv_total, lat, lon, alt_m, rssi, snr) VALUES ($session_id, $timestamp, $duration_s, $pulses, $cpm, $usv_h, $usv_total, $lat, $lon, $alt_m, $rssi, $snr);',\n    payload: [\n        sessionId, now,\n        parseFloat(d.dur_s), parseInt(d.pulses),\n        cpm, usvH, parseFloat(d.usv_tot),\n        lat, lon, parseFloat(d.alt),\n        parseInt(d.rssi), parseFloat(d.snr)\n    ]\n};\n\nvar notif = {\n    payload: d.dur_s + 's: ' + cpm.toFixed(1) + ' CPM | ' + usvH.toFixed(4) + ' µSv/h'\n};\n\nvar dotColor = cpm > 100 ? 'red' : cpm > 50 ? 'orange' : cpm > 30 ? 'yellow' : 'green';\nvar dotSize  = Math.min(40, Math.max(10, Math.round(cpm / 5)));\nvar markerMsg = null;\nif (lat !== 0 && lon !== 0) {\n    markerMsg = {\n        payload: {\n            name      : 'timed_' + d.id,\n            lat       : lat,\n            lon       : lon,\n            icon      : 'fa-circle',\n            iconColor : dotColor,\n            iconSize  : [dotSize, dotSize],\n            layer     : 'Timed Counts',\n            popup     : '<b>Timed #' + d.id + '</b><br>'\n                      + '<b>' + cpm.toFixed(1) + ' CPM</b><br>'\n                      + usvH.toFixed(4) + ' µSv/h<br>'\n                      + 'Durasi: ' + d.dur_s + 's | Pulsa: ' + d.pulses + '<br>'\n                      + 'Alt: ' + parseFloat(d.alt).toFixed(1) + ' m<br>'\n                      + now\n        }\n    };\n}\n\nvar heatPoints = flow.get('heatPoints') || [];\nif (lat !== 0 && lon !== 0) {\n    heatPoints.push({ lat: lat, lon: lon, cpm: cpm });\n    flow.set('heatPoints', heatPoints);\n}\nvar maxCPM = Math.max.apply(null, heatPoints.map(function(p){ return p.cpm; }));\nif (maxCPM < 1) maxCPM = 1;\n\nvar heatMsg = null;\nif (heatPoints.length > 0) {\n    heatMsg = {\n        payload: {\n            command : { heatmap: heatPoints.map(function(p){\n                return { lat: p.lat, lon: p.lon, intensity: parseFloat((p.cpm / maxCPM).toFixed(3)) };\n            })},\n            layer: 'Heatmap'\n        }\n    };\n}\n\nvar tableRow = {\n    'ID'         : d.id,\n    'Sesi'       : sessionId,\n    'Waktu'      : now.replace('T', ' ').slice(0, 19),\n    'Durasi(s)'  : parseFloat(d.dur_s),\n    'Pulsa'      : parseInt(d.pulses),\n    'CPM'        : cpm.toFixed(1),\n    'µSv/h'      : usvH.toFixed(4),\n    'Total(µSv)' : parseFloat(d.usv_tot).toFixed(6),\n    'Lat'        : lat.toFixed(6),\n    'Lon'        : lon.toFixed(6),\n    'Alt(m)'     : parseFloat(d.alt).toFixed(1),\n    'RSSI'       : parseInt(d.rssi)\n};\n\nvar tableData = flow.get('tableData') || [];\ntableData.unshift(tableRow);\nif (tableData.length > 500) tableData = tableData.slice(0, 500);\nflow.set('tableData', tableData);\n\nreturn [sqlMsg, notif, markerMsg, heatMsg, { payload: tableData }];",
+        "outputs": 5,
+        "x": 1150,
+        "y": 180,
+        "wires": [
+            [
+                "647664c878ba2308"
+            ],
+            [
+                "66575b4ba217f39c"
+            ],
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "7e1cb53b20918a7e"
+            ]
+        ]
+    },
+    {
+        "id": "647664c878ba2308",
+        "type": "sqlite",
+        "z": "1b565e645a805405",
+        "mydb": "0168cd33b9d4013a",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "Simpan ke SQLite",
+        "x": 1470,
+        "y": 120,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "c332b50cd0d622eb",
+        "type": "debug",
+        "z": "1b565e645a805405",
+        "name": "Debug & Status",
+        "active": true,
+        "tosidebar": true,
+        "complete": "payload",
+        "x": 1060,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "8a3960c10dd69a61",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Handle Status CMD",
+        "func": "var d = msg.payload;\nif (!d.status) return null;\nvar text = '';\nif (d.status === 'cmd_sending') {\n    text = 'Mengirim perintah ' + d.cmd + '... (menunggu konfirmasi)';\n} else if (d.status === 'cmd_ack') {\n    text = 'Perintah ' + d.cmd + ' diterima drone!';\n} else if (d.status === 'cmd_timeout') {\n    text = 'TIMEOUT: Perintah ' + d.cmd + ' tidak terkonfirmasi. Coba lagi.';\n} else {\n    return null;\n}\nreturn { payload: text };",
+        "outputs": 1,
+        "x": 1080,
+        "y": 300,
+        "wires": [
+            [
+                "27433f4bb78a1ad2"
+            ]
+        ]
+    },
+    {
+        "id": "125e81284d526139",
+        "type": "ui_button",
+        "z": "1b565e645a805405",
+        "name": "Clear + Tandai Sesi Baru",
+        "group": "9260a48fb9ce10d5",
+        "order": 12,
+        "width": 5,
+        "height": 1,
+        "passthru": false,
+        "label": "Clear + Tandai Sesi Baru",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "clear_session",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 150,
+        "y": 480,
+        "wires": [
+            [
+                "d12ef0289cfccce5"
+            ]
+        ]
+    },
+    {
+        "id": "d12ef0289cfccce5",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Mulai Sesi Baru",
+        "func": "var sessionId = (flow.get('currentSessionId') || 1) + 1;\nflow.set('currentSessionId', sessionId);\nflow.set('heatPoints', []);\nflow.set('currentSessionView', sessionId);\n\nvar clearMarker = { payload: { command: { clearlayer: 'Timed Counts' } } };\nvar clearHeat   = { payload: { command: { clearlayer: 'Heatmap' } } };\nvar infoMsg     = { payload: 'Sesi #' + sessionId + ' dimulai' };\n\nnode.send([clearMarker, clearHeat, infoMsg]);\nreturn null;",
+        "outputs": 3,
+        "x": 360,
+        "y": 480,
+        "wires": [
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "a9ce22f6d0e648ad"
+            ]
+        ]
+    },
+    {
+        "id": "421b7f0417580db1",
+        "type": "ui_button",
+        "z": "1b565e645a805405",
+        "name": "Clear saja",
+        "group": "9260a48fb9ce10d5",
+        "order": 11,
+        "width": 5,
+        "height": 1,
+        "passthru": false,
+        "label": "Clear Peta Saja",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "clear_only",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 100,
+        "y": 540,
+        "wires": [
+            [
+                "229e4aa5079fcd9a"
+            ]
+        ]
+    },
+    {
+        "id": "229e4aa5079fcd9a",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Clear Peta Saja",
+        "func": "flow.set('heatPoints', []);\nvar clearMarker = { payload: { command: { clearlayer: 'Timed Counts' } } };\nvar clearHeat   = { payload: { command: { clearlayer: 'Heatmap' } } };\nreturn [clearMarker, clearHeat];",
+        "outputs": 2,
+        "x": 360,
+        "y": 540,
+        "wires": [
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "105205e80cae6d5d"
+            ]
+        ]
+    },
+    {
+        "id": "ef86dfa64a414f45",
+        "type": "ui_button",
+        "z": "1b565e645a805405",
+        "name": "Sesi Sebelumnya",
+        "group": "9260a48fb9ce10d5",
+        "order": 15,
+        "width": 5,
+        "height": 1,
+        "passthru": false,
+        "label": "< Sesi Sebelumnya",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "prev",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 130,
+        "y": 360,
+        "wires": [
+            [
+                "88f8daee58884821"
+            ]
+        ]
+    },
+    {
+        "id": "f1a9b46f8eb9f418",
+        "type": "ui_button",
+        "z": "1b565e645a805405",
+        "name": "Sesi Berikutnya",
+        "group": "9260a48fb9ce10d5",
+        "order": 16,
+        "width": 5,
+        "height": 1,
+        "passthru": false,
+        "label": "Sesi Berikutnya >",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "next",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 120,
+        "y": 420,
+        "wires": [
+            [
+                "88f8daee58884821"
+            ]
+        ]
+    },
+    {
+        "id": "88f8daee58884821",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Navigasi Sesi Prev/Next",
+        "func": "var direction = msg.payload;\nvar current   = flow.get('currentSessionView') || (flow.get('currentSessionId') || 1);\nvar maxSes    = flow.get('currentSessionId') || 1;\n\nvar target;\nif (direction === 'prev') {\n    target = Math.max(1, current - 1);\n} else {\n    target = Math.min(maxSes, current + 1);\n}\n\nif (target === current) {\n    return [null, { payload: 'Tidak ada sesi lagi di arah tersebut' }];\n}\n\nflow.set('currentSessionView', target);\n\nmsg.topic   = 'SELECT id, timestamp, cpm, usv_h, usv_total, lat, lon, alt_m, duration_s, pulses, rssi FROM timed_count WHERE session_id = ' + target + ' ORDER BY id ASC';\nmsg.payload    = [];\nmsg._sessionID = target;\nreturn [msg, null];",
+        "outputs": 2,
+        "x": 390,
+        "y": 360,
+        "wires": [
+            [
+                "2a85769d7b11a43a"
+            ],
+            [
+                "a9ce22f6d0e648ad"
+            ]
+        ]
+    },
+    {
+        "id": "2a85769d7b11a43a",
+        "type": "sqlite",
+        "z": "1b565e645a805405",
+        "mydb": "0168cd33b9d4013a",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "Query data sesi",
+        "x": 640,
+        "y": 360,
+        "wires": [
+            [
+                "d55af27a6563d726"
+            ]
+        ]
+    },
+    {
+        "id": "d55af27a6563d726",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Render marker + heatmap sesi",
+        "func": "var rows = msg.payload;\nif (!Array.isArray(rows) || rows.length === 0) {\n    return [null, null, { payload: 'Sesi #' + (msg._sessionID || '?') + ' — tidak ada data' }];\n}\n\nvar maxCPM = Math.max.apply(null, rows.map(function(r){ return parseFloat(r.cpm); }));\nif (maxCPM < 1) maxCPM = 1;\n\nflow.set('heatPoints', rows.map(function(r){\n    return { lat: parseFloat(r.lat), lon: parseFloat(r.lon), cpm: parseFloat(r.cpm) };\n}));\n\nvar clearMsgs = [\n    { payload: { command: { clearlayer: 'Timed Counts' } } },\n    { payload: { command: { clearlayer: 'Heatmap' } } }\n];\n\nvar markerMsgs = rows.map(function(r) {\n    var cpm      = parseFloat(r.cpm);\n    var dotColor = cpm > 100 ? 'red' : cpm > 50 ? 'orange' : cpm > 30 ? 'yellow' : 'green';\n    var dotSize  = Math.min(40, Math.max(10, Math.round(cpm / 5)));\n    return {\n        payload: {\n            name      : 'timed_' + r.id,\n            lat       : parseFloat(r.lat),\n            lon       : parseFloat(r.lon),\n            icon      : 'fa-circle',\n            iconColor : dotColor,\n            iconSize  : [dotSize, dotSize],\n            layer     : 'Timed Counts',\n            popup     : '<b>Timed #' + r.id + '</b><br>'\n                      + '<b>' + cpm.toFixed(1) + ' CPM</b><br>'\n                      + parseFloat(r.usv_h).toFixed(4) + ' µSv/h<br>'\n                      + 'Durasi: ' + r.duration_s + 's | Pulsa: ' + r.pulses + '<br>'\n                      + 'Alt: ' + parseFloat(r.alt_m).toFixed(1) + ' m<br>'\n                      + r.timestamp\n        }\n    };\n});\n\nvar heatMsg = {\n    payload: {\n        command: { heatmap: rows.map(function(r) {\n            return {\n                lat       : parseFloat(r.lat),\n                lon       : parseFloat(r.lon),\n                intensity : parseFloat((parseFloat(r.cpm) / maxCPM).toFixed(3))\n            };\n        })},\n        layer: 'Heatmap'\n    }\n};\n\nvar firstTime = rows[0].timestamp || '';\nvar infoMsg = {\n    payload: 'Sesi #' + msg._sessionID + ' — ' + firstTime.replace('T',' ').slice(0,19)\n            + ' (' + rows.length + ' titik)'\n};\n\nnode.send([clearMsgs, markerMsgs, heatMsg, infoMsg]);\nreturn null;",
+        "outputs": 4,
+        "x": 1110,
+        "y": 360,
+        "wires": [
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "105205e80cae6d5d"
+            ],
+            [
+                "a9ce22f6d0e648ad"
+            ]
+        ]
+    },
+    {
+        "id": "c38e4d3ced606819",
+        "type": "ui_numeric",
+        "z": "1b565e645a805405",
+        "name": "Durasi Cacah",
+        "label": "Durasi (detik)",
+        "tooltip": "",
+        "group": "9260a48fb9ce10d5",
+        "order": 6,
+        "width": 5,
+        "height": 1,
+        "wrap": false,
+        "passthru": true,
+        "topic": "",
+        "topicType": "str",
+        "format": "{{value}}",
+        "min": 5,
+        "max": 300,
+        "step": 5,
+        "className": "",
+        "x": 120,
+        "y": 180,
+        "wires": [
+            [
+                "acbefc6e227b5d5a"
+            ]
+        ]
+    },
+    {
+        "id": "acbefc6e227b5d5a",
+        "type": "change",
+        "z": "1b565e645a805405",
+        "name": "Simpan durasi",
+        "rules": [
+            {
+                "t": "set",
+                "p": "duration",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "x": 360,
+        "y": 180,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4b80cba650068829",
+        "type": "ui_button",
+        "z": "1b565e645a805405",
+        "name": "Mulai Timed Count",
+        "group": "9260a48fb9ce10d5",
+        "order": 9,
+        "width": 5,
+        "height": 1,
+        "passthru": false,
+        "label": "▶ Mulai Cacah",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 130,
+        "y": 300,
+        "wires": [
+            [
+                "f2e1716896bc6d32"
+            ]
+        ]
+    },
+    {
+        "id": "f2e1716896bc6d32",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Buat perintah timed",
+        "func": "//var dur = flow.get('duration') || 30;\nvar dur = flow.get('duration');\nmsg.payload = JSON.stringify({ cmd: 'timed', duration: parseInt(dur) }) + '\\n';\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 300,
+        "wires": [
+            [
+                "753e6ec352cf4a26",
+                "3ed9d6ba90241b04"
+            ]
+        ]
+    },
+    {
+        "id": "cdf812d59258e993",
+        "type": "ui_button",
+        "z": "1b565e645a805405",
+        "name": "Stop",
+        "group": "9260a48fb9ce10d5",
+        "order": 13,
+        "width": 5,
+        "height": 1,
+        "passthru": false,
+        "label": "■ Stop",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "",
+        "payload": "{\"cmd\":\"stop\"}",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 90,
+        "y": 240,
+        "wires": [
+            [
+                "753e6ec352cf4a26"
+            ]
+        ]
+    },
+    {
+        "id": "753e6ec352cf4a26",
+        "type": "serial out",
+        "z": "1b565e645a805405",
+        "name": "Kirim ke Receiver",
+        "serial": "be653c81289951d4",
+        "x": 650,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "105205e80cae6d5d",
+        "type": "ui_worldmap",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "order": 1,
+        "width": 19,
+        "height": 10,
+        "name": "Peta Radiasi",
+        "lat": "-7.7786561463119055",
+        "lon": "110.41258987339785",
+        "zoom": "",
+        "layer": "OSMG",
+        "cluster": "",
+        "maxage": "",
+        "usermenu": "show",
+        "layers": "show",
+        "panit": "false",
+        "panlock": "false",
+        "zoomlock": "false",
+        "hiderightclick": "false",
+        "coords": "deg",
+        "showgrid": "false",
+        "showruler": "false",
+        "allowFileDrop": "false",
+        "path": "/worldmap",
+        "overlist": "DR,CO,RA,DN,HM",
+        "maplist": "OSMG,OSMC,EsriC,EsriS,EsriT,EsriO,EsriDG,NatGeo",
+        "mapname": "",
+        "mapurl": "",
+        "mapopt": "",
+        "mapwms": false,
+        "x": 1450,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "3a382435fff19761",
+        "type": "ui_gauge",
+        "z": "1b565e645a805405",
+        "name": "CPM",
+        "group": "9260a48fb9ce10d5",
+        "order": 2,
+        "width": 5,
+        "height": 4,
+        "gtype": "gage",
+        "title": "Laju Cacah",
+        "label": "CPM",
+        "format": "{{value}}",
+        "min": 0,
+        "max": "1000",
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#e60000"
+        ],
+        "seg1": "333",
+        "seg2": "666",
+        "diff": false,
+        "className": "",
+        "x": 1430,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "6e680ac6e771cdfb",
+        "type": "ui_gauge",
+        "z": "1b565e645a805405",
+        "name": "uSv/h",
+        "group": "9260a48fb9ce10d5",
+        "order": 3,
+        "width": 5,
+        "height": 4,
+        "gtype": "gage",
+        "title": "Laju Dosis",
+        "label": "µSv/h",
+        "format": "{{value | number:4}}",
+        "min": 0,
+        "max": 5,
+        "colors": [
+            "#00b500",
+            "#e6e600",
+            "#e60000"
+        ],
+        "seg1": "1",
+        "seg2": "2.5",
+        "diff": false,
+        "className": "",
+        "x": 1430,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "ad29d2995b07fef3",
+        "type": "ui_text",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "order": 4,
+        "width": 5,
+        "height": 1,
+        "name": "Altitude",
+        "label": "Altitude",
+        "format": "{{msg.payload}} m",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1440,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "7a0d290ae8641c04",
+        "type": "ui_text",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "order": 5,
+        "width": 5,
+        "height": 1,
+        "name": "RSSI",
+        "label": "RSSI LoRa",
+        "format": "{{msg.payload}} dBm",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1430,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "66575b4ba217f39c",
+        "type": "ui_text",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "order": 7,
+        "width": 9,
+        "height": 1,
+        "name": "Hasil Timed",
+        "label": "Hasil terakhir",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1450,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "27433f4bb78a1ad2",
+        "type": "ui_text",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "order": 10,
+        "width": 9,
+        "height": 1,
+        "name": "Status Perintah",
+        "label": "Status",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1460,
+        "y": 380,
+        "wires": []
+    },
+    {
+        "id": "a9ce22f6d0e648ad",
+        "type": "ui_text",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "order": 8,
+        "width": 10,
+        "height": 1,
+        "name": "Info Sesi",
+        "label": "Sesi ditampilkan",
+        "format": "{{msg.payload}}",
+        "layout": "row-spread",
+        "className": "",
+        "style": false,
+        "font": "",
+        "fontSize": "",
+        "color": "#000000",
+        "x": 1440,
+        "y": 420,
+        "wires": []
+    },
+    {
+        "id": "aa19f79933a96c38",
+        "type": "inject",
+        "z": "1b565e645a805405",
+        "name": "Populate tabel saat deploy",
+        "props": [
+            {
+                "p": "topic"
+            },
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": 3,
+        "topic": "SELECT id, session_id, timestamp, duration_s, pulses, cpm, usv_h, usv_total, lat, lon, alt_m, rssi, snr FROM timed_count ORDER BY timestamp DESC LIMIT 100",
+        "payload": "[]",
+        "payloadType": "json",
+        "x": 180,
+        "y": 600,
+        "wires": [
+            [
+                "7ab6e2601945685a"
+            ]
+        ]
+    },
+    {
+        "id": "7ab6e2601945685a",
+        "type": "sqlite",
+        "z": "1b565e645a805405",
+        "mydb": "0168cd33b9d4013a",
+        "sqlquery": "msg.topic",
+        "sql": "",
+        "name": "Query tabel awal",
+        "x": 430,
+        "y": 600,
+        "wires": [
+            [
+                "791030c4155bae6e"
+            ]
+        ]
+    },
+    {
+        "id": "791030c4155bae6e",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Format tabel awal",
+        "func": "var rows = msg.payload;\nif (!Array.isArray(rows) || rows.length === 0) {\n    flow.set('tableData', []);\n    return null;\n}\nvar tableData = rows.map(function(r) {\n    return {\n        'ID'         : r.id,\n        'Sesi'       : r.session_id,\n        'Waktu'      : (r.timestamp || '').replace('T',' ').slice(0,19),\n        'Durasi(s)'  : r.duration_s,\n        'Pulsa'      : r.pulses,\n        'CPM'        : parseFloat(r.cpm).toFixed(1),\n        'µSv/h'      : parseFloat(r.usv_h).toFixed(4),\n        'Total(µSv)' : parseFloat(r.usv_total).toFixed(6),\n        'Lat'        : parseFloat(r.lat).toFixed(6),\n        'Lon'        : parseFloat(r.lon).toFixed(6),\n        'Alt(m)'     : parseFloat(r.alt_m).toFixed(1),\n        'RSSI'       : r.rssi\n    };\n});\nflow.set('tableData', tableData);\nmsg.payload = tableData;\nreturn msg;",
+        "outputs": 1,
+        "x": 650,
+        "y": 600,
+        "wires": [
+            [
+                "7e1cb53b20918a7e"
+            ]
+        ]
+    },
+    {
+        "id": "7e1cb53b20918a7e",
+        "type": "ui_table",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "name": "Tabel Data Timed",
+        "order": 17,
+        "width": 20,
+        "height": 4,
+        "columns": [],
+        "outputs": 0,
+        "cts": false,
+        "x": 870,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "10f22daffb61b45c",
+        "type": "http in",
+        "z": "1b565e645a805405",
+        "name": "GET /export-csv",
+        "url": "/export-csv",
+        "method": "get",
+        "upload": false,
+        "x": 120,
+        "y": 720,
+        "wires": [
+            [
+                "cda94aa61e81d7ef"
+            ]
+        ]
+    },
+    {
+        "id": "cda94aa61e81d7ef",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Format CSV",
+        "func": "var rows = flow.get('tableData') || [];\nif (rows.length === 0) {\n    msg.payload    = 'Tidak ada data.';\n    msg.statusCode = 404;\n    msg.headers    = { 'Content-Type': 'text/plain' };\n    return msg;\n}\nvar cols  = Object.keys(rows[0]);\nvar lines = [cols.join(',')];\nrows.forEach(function(r) {\n    lines.push(cols.map(function(k) {\n        var v = r[k] !== undefined ? r[k] : '';\n        if (typeof v === 'string' && (v.includes(',') || v.includes('\"'))) {\n            return '\"' + v.replace(/\"/g, '\"\"') + '\"';\n        }\n        return v;\n    }).join(','));\n});\nvar now = new Date();\nvar pad = function(n){ return ('0'+n).slice(-2); };\nvar ts  = now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())\n        + '_' + pad(now.getHours()) + pad(now.getMinutes());\nmsg.payload    = lines.join('\\n');\nmsg.statusCode = 200;\nmsg.headers    = {\n    'Content-Type'        : 'text/csv; charset=utf-8',\n    'Content-Disposition' : 'attachment; filename=\"radiasi_' + ts + '.csv\"'\n};\nreturn msg;",
+        "outputs": 1,
+        "x": 410,
+        "y": 720,
+        "wires": [
+            [
+                "f5b425ac5c8dd764"
+            ]
+        ]
+    },
+    {
+        "id": "f5b425ac5c8dd764",
+        "type": "http response",
+        "z": "1b565e645a805405",
+        "name": "Kirim CSV",
+        "x": 630,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "cf3ded43c6924721",
+        "type": "ui_button",
+        "z": "1b565e645a805405",
+        "name": "Download CSV",
+        "group": "9260a48fb9ce10d5",
+        "order": 18,
+        "width": 4,
+        "height": 4,
+        "passthru": false,
+        "label": "Download CSV",
+        "tooltip": "",
+        "color": "",
+        "bgcolor": "",
+        "className": "",
+        "icon": "file_download",
+        "payload": "http://localhost:1880/export-csv",
+        "payloadType": "str",
+        "topic": "",
+        "topicType": "str",
+        "x": 120,
+        "y": 660,
+        "wires": [
+            [
+                "ee031db5c17f8b60"
+            ]
+        ]
+    },
+    {
+        "id": "ee031db5c17f8b60",
+        "type": "function",
+        "z": "1b565e645a805405",
+        "name": "Buka URL download",
+        "func": "msg.payload = '<script>window.open(\"http://localhost:1880/export-csv\",\"_blank\");</script>';\nreturn msg;",
+        "outputs": 1,
+        "x": 440,
+        "y": 660,
+        "wires": [
+            [
+                "d1fe2e4842084e5a"
+            ]
+        ]
+    },
+    {
+        "id": "d1fe2e4842084e5a",
+        "type": "ui_template",
+        "z": "1b565e645a805405",
+        "group": "9260a48fb9ce10d5",
+        "name": "Open URL trigger",
+        "order": 14,
+        "width": 9,
+        "height": 1,
+        "format": "<div ng-bind-html=\"msg.payload | trusted\"></div>",
+        "storeOutMessages": false,
+        "fwdInMessages": true,
+        "resendOnRefresh": false,
+        "templateScope": "local",
+        "className": "",
+        "x": 650,
+        "y": 660,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "3ed9d6ba90241b04",
+        "type": "debug",
+        "z": "1b565e645a805405",
+        "name": "debug 4",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 620,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "0168cd33b9d4013a",
+        "type": "sqlitedb",
+        "db": "radiasi_gamma.db",
+        "mode": "RWC"
+    },
+    {
+        "id": "be653c81289951d4",
+        "type": "serial-port",
+        "name": "",
+        "serialport": "COM9",
+        "serialbaud": "115200",
+        "databits": 8,
+        "parity": "none",
+        "stopbits": 1,
+        "waitfor": "",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "\\n",
+        "bin": "false",
+        "out": "char",
+        "addchar": "",
+        "responsetimeout": 10000
+    },
+    {
+        "id": "9260a48fb9ce10d5",
+        "type": "ui_group",
+        "name": "Main",
+        "tab": "ui_tab_main",
+        "order": 5,
+        "disp": false,
+        "width": 24,
+        "collapse": false,
+        "className": ""
+    },
+    {
+        "id": "ui_tab_main",
+        "type": "ui_tab",
+        "name": "Radiasi Gamma UAV",
+        "icon": "dashboard",
+        "order": 1
+    },
+    {
+        "id": "b140c383a10ec448",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-node-sqlite": "1.1.1",
+            "node-red-node-serialport": "2.0.3",
+            "node-red-dashboard": "3.6.6",
+            "node-red-contrib-web-worldmap": "5.5.2",
+            "node-red-node-ui-table": "0.4.5"
+        }
+    }
+]
