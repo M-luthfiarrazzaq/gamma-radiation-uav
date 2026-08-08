@@ -8,7 +8,7 @@ Built as my final project (*Tugas Akhir*) for the D4 Electronics & Instrumentati
 Politeknik Teknologi Nuklir Indonesia. Defended 8 July 2026.
 
 <!-- ▸ REPLACE: photo of the transmitter board mounted on the hexacopter -->
-![System mounted on the hexacopter](docs/images/system-on-hexacopter.jpg)
+![System mounted on the hexacopter](docs/images/system-on-hexacopter.png)
 
 ---
 
