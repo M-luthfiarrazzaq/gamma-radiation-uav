@@ -72,7 +72,7 @@ Both boards were designed from scratch in EasyEDA, fabricated, and hand-assemble
 
 <!-- ▸ REPLACE: Gambar 4.4 (PCB layout) and Gambar 4.5 (photo, top + bottom) -->
 <p align="center">
-  <img src="docs/images/tx-layout.png" width="75%" alt="Transmitter PCB layout">
+  <img src="docs/images/tx-layout.png" width="60%" alt="Transmitter PCB layout">
   <img src="docs/images/tx-photo.png" width="25%" alt="Assembled transmitter board">
 </p>
 
