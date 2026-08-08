@@ -293,7 +293,7 @@ Stated plainly, because they matter more than the successes:
 **Muhammad Luthfi Ar-Razzaq**
 D4 Electronics & Instrumentation, Politeknik Teknologi Nuklir Indonesia (BRIN)
 <!-- ▸ REPLACE with your real links -->
-[LinkedIn](https://www.linkedin.com/in/lutfhi-arrazzaq-5a421a362) · luthfiarrazzaq99@gmail.com
+[LinkedIn](https://www.linkedin.com/in/muhammad-luthfi-ar-razzaq-5a421a362) · luthfiarrazzaq99@gmail.com
 
 Supervised by Prof. Dr. Anhar R. Antariksawan and Halim Hamadi, M.Sc.
 Defended 8 July 2026.
