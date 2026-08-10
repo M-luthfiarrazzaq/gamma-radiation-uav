@@ -39,29 +39,6 @@ infrastructure — which is exactly the condition you find at an emergency site.
 <!-- ▸ REPLACE: Gambar 3.2 from the thesis (system architecture diagram) -->
 ![System architecture](docs/images/architecture.png)
 
-```
-┌──────────────────────── HEXACOPTER ────────────────────────┐
-│  ┌────────────┐   pulses   ┌──────────────┐                │
-│  │ GM tube    │───────────▶│              │                │
-│  │ J305       │            │  ESP32-S3    │   SPI   ┌────┐ │
-│  └────────────┘            │  transmitter │────────▶│LoRa│ │
-│  ┌────────────┐   UART     │              │         │RA-02││
-│  │ NEO-6M GPS │───────────▶│  state       │         └──┬─┘ │
-│  └────────────┘            │  machine     │            │   │
-│  ┌────────────┐  MAVLink   │              │            │   │
-│  │ Flight ctl │◀──────────▶│              │            │   │
-│  └────────────┘  GPS up /  └──────────────┘            │   │
-│                  alt down                              │   │
-└────────────────────────────────────────────────────────┼───┘
-                                                433 MHz │
-                                                        ▼
-                          ┌──────────────┐        ┌──────────┐
-                          │ Node-RED     │◀───────│ ESP32-S3 │
-                          │ + SQLite     │  USB   │ receiver │
-                          │ ground stn   │ serial │ (dongle) │
-                          └──────────────┘        └──────────┘
-```
-
 ---
 
 ## Hardware
