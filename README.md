@@ -230,8 +230,8 @@ validating that the system can estimate source location from the air.
 ```
 .
 ├── hardware/
-│   ├── transmitter/        # EasyEDA project, schematic + layout, gerbers, BOM
-│   └── receiver/           # EasyEDA project, schematic + layout, gerbers, BOM
+│   ├── transmitter/        # EasyEDA project, schematic + layout, gerbers
+│   └── receiver/           # EasyEDA project, schematic + layout, gerbers
 ├── firmware/
 │   ├── transmitter/
 │   └── receiver/
